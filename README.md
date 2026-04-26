@@ -2,7 +2,7 @@
 
 > Codex 和 Claude Code 一键安装。新手也能 30 秒跑起来。
 >
-> 🌐 完整教程和 FAQ：<https://cli.liangai.org>
+> 🌐 完整教程和 FAQ：<https://install.liangai.org>
 >
 > 🇺🇸 [English](./README.en.md)
 
@@ -24,7 +24,7 @@
 ### Codex CLI
 
 ```cmd
-curl.exe -fL https://cli.liangai.org/codex.cmd -o "%TEMP%\codex.cmd" && "%TEMP%\codex.cmd"
+curl.exe -fL https://install.liangai.org/codex.cmd -o "%TEMP%\codex.cmd" && "%TEMP%\codex.cmd"
 ```
 
 SHA256: `d940f38a1e8089265869a15fe61d088d93898228d3a1f93dbfa27c879ce69179`
@@ -32,12 +32,12 @@ SHA256: `d940f38a1e8089265869a15fe61d088d93898228d3a1f93dbfa27c879ce69179`
 ### Claude Code
 
 ```cmd
-curl.exe -fL https://cli.liangai.org/claude-code.cmd -o "%TEMP%\claude-code.cmd" && "%TEMP%\claude-code.cmd"
+curl.exe -fL https://install.liangai.org/claude-code.cmd -o "%TEMP%\claude-code.cmd" && "%TEMP%\claude-code.cmd"
 ```
 
 SHA256: `2bc362629b2e22e3eb370902bd167d80e0d38fde65845b2b66f3292815274020`
 
-[👉 查看详情和常见问题（cli.liangai.org/?os=win）](https://cli.liangai.org/?os=win)
+[👉 查看详情和常见问题（install.liangai.org/?os=win）](https://install.liangai.org/?os=win)
 
 ---
 
@@ -46,7 +46,7 @@ SHA256: `2bc362629b2e22e3eb370902bd167d80e0d38fde65845b2b66f3292815274020`
 ### Codex CLI
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/codex-macos.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/codex-macos.sh)"
 ```
 
 SHA256: `5c9e119ec99b035c61e92fc8d89aa26c808dd614f5d1811afd8a4125f14b4a08`
@@ -54,12 +54,12 @@ SHA256: `5c9e119ec99b035c61e92fc8d89aa26c808dd614f5d1811afd8a4125f14b4a08`
 ### Claude Code
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/claude-code-macos.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/claude-code-macos.sh)"
 ```
 
 SHA256: `50074de8c499a4111751683c152ec4a5b3388d92481854abbfefcf7204ab90aa`
 
-[👉 查看详情和常见问题（cli.liangai.org/?os=mac）](https://cli.liangai.org/?os=mac)
+[👉 查看详情和常见问题（install.liangai.org/?os=mac）](https://install.liangai.org/?os=mac)
 
 ---
 
@@ -68,7 +68,7 @@ SHA256: `50074de8c499a4111751683c152ec4a5b3388d92481854abbfefcf7204ab90aa`
 ### Codex CLI
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/codex-linux.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/codex-linux.sh)"
 ```
 
 SHA256: `973cd0343c6952092b022a48812b969eb0c3b9b4d8ffb325980a9b0fcb18177b`
@@ -76,12 +76,12 @@ SHA256: `973cd0343c6952092b022a48812b969eb0c3b9b4d8ffb325980a9b0fcb18177b`
 ### Claude Code
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/claude-code-linux.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/claude-code-linux.sh)"
 ```
 
 SHA256: `548d6748e8cb55cb3d77aeffaffd21faf731a2a3e3a15d9bd9f9f6c7283ae3c2`
 
-[👉 查看详情和常见问题（cli.liangai.org/?os=linux）](https://cli.liangai.org/?os=linux)
+[👉 查看详情和常见问题（install.liangai.org/?os=linux）](https://install.liangai.org/?os=linux)
 
 ---
 
@@ -133,15 +133,15 @@ GitHub Issues：<https://github.com/Liang-HZ/ai-installer/issues>
 - 脚本最后输出的 5–10 行（**不要贴 key/token**）
 - 你选的认证方式
 
-[更多问题 → cli.liangai.org/#faq](https://cli.liangai.org/#faq)
+[更多问题 → install.liangai.org/#faq](https://install.liangai.org/#faq)
 
 ---
 
 ## 安全说明
 
 - **不内置任何 key/token**：脚本运行时由你自己输入。
-- **不转发任何 API 请求**：本仓库和 cli.liangai.org **不**做任何 API 中转，所有请求直接发给你选的 API 服务。
-- **SHA256 公开**：所有 hash 在本 README 和 cli.liangai.org 同步公布。
+- **不转发任何 API 请求**：本仓库和 install.liangai.org **不**做任何 API 中转，所有请求直接发给你选的 API 服务。
+- **SHA256 公开**：所有 hash 在本 README 和 install.liangai.org 同步公布。
 - **全部源码在本仓库**：欢迎自查每一行。
 
 ---

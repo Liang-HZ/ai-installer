@@ -2,7 +2,7 @@
 
 > One-line install for Codex and Claude Code. Beginner-friendly — running in 30 seconds.
 >
-> 🌐 Full guide and FAQ: <https://cli.liangai.org>
+> 🌐 Full guide and FAQ: <https://install.liangai.org>
 >
 > 🇨🇳 [中文](./README.md)
 
@@ -24,7 +24,7 @@ Supported auth methods (you pick at install time):
 ### Codex CLI
 
 ```cmd
-curl.exe -fL https://cli.liangai.org/codex.cmd -o "%TEMP%\codex.cmd" && "%TEMP%\codex.cmd"
+curl.exe -fL https://install.liangai.org/codex.cmd -o "%TEMP%\codex.cmd" && "%TEMP%\codex.cmd"
 ```
 
 SHA256: `d940f38a1e8089265869a15fe61d088d93898228d3a1f93dbfa27c879ce69179`
@@ -32,12 +32,12 @@ SHA256: `d940f38a1e8089265869a15fe61d088d93898228d3a1f93dbfa27c879ce69179`
 ### Claude Code
 
 ```cmd
-curl.exe -fL https://cli.liangai.org/claude-code.cmd -o "%TEMP%\claude-code.cmd" && "%TEMP%\claude-code.cmd"
+curl.exe -fL https://install.liangai.org/claude-code.cmd -o "%TEMP%\claude-code.cmd" && "%TEMP%\claude-code.cmd"
 ```
 
 SHA256: `2bc362629b2e22e3eb370902bd167d80e0d38fde65845b2b66f3292815274020`
 
-[👉 Details and FAQ (cli.liangai.org/?os=win)](https://cli.liangai.org/?os=win)
+[👉 Details and FAQ (install.liangai.org/?os=win)](https://install.liangai.org/?os=win)
 
 ---
 
@@ -46,7 +46,7 @@ SHA256: `2bc362629b2e22e3eb370902bd167d80e0d38fde65845b2b66f3292815274020`
 ### Codex CLI
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/codex-macos.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/codex-macos.sh)"
 ```
 
 SHA256: `5c9e119ec99b035c61e92fc8d89aa26c808dd614f5d1811afd8a4125f14b4a08`
@@ -54,12 +54,12 @@ SHA256: `5c9e119ec99b035c61e92fc8d89aa26c808dd614f5d1811afd8a4125f14b4a08`
 ### Claude Code
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/claude-code-macos.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/claude-code-macos.sh)"
 ```
 
 SHA256: `50074de8c499a4111751683c152ec4a5b3388d92481854abbfefcf7204ab90aa`
 
-[👉 Details and FAQ (cli.liangai.org/?os=mac)](https://cli.liangai.org/?os=mac)
+[👉 Details and FAQ (install.liangai.org/?os=mac)](https://install.liangai.org/?os=mac)
 
 ---
 
@@ -68,7 +68,7 @@ SHA256: `50074de8c499a4111751683c152ec4a5b3388d92481854abbfefcf7204ab90aa`
 ### Codex CLI
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/codex-linux.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/codex-linux.sh)"
 ```
 
 SHA256: `973cd0343c6952092b022a48812b969eb0c3b9b4d8ffb325980a9b0fcb18177b`
@@ -76,12 +76,12 @@ SHA256: `973cd0343c6952092b022a48812b969eb0c3b9b4d8ffb325980a9b0fcb18177b`
 ### Claude Code
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://cli.liangai.org/claude-code-linux.sh)"
+/bin/bash -c "$(curl -fsSL https://install.liangai.org/claude-code-linux.sh)"
 ```
 
 SHA256: `548d6748e8cb55cb3d77aeffaffd21faf731a2a3e3a15d9bd9f9f6c7283ae3c2`
 
-[👉 Details and FAQ (cli.liangai.org/?os=linux)](https://cli.liangai.org/?os=linux)
+[👉 Details and FAQ (install.liangai.org/?os=linux)](https://install.liangai.org/?os=linux)
 
 ---
 
@@ -133,15 +133,15 @@ Please include:
 - The last 5–10 lines of script output (**do not paste your key/token**)
 - The auth mode you selected
 
-[More FAQs → cli.liangai.org/#faq](https://cli.liangai.org/#faq)
+[More FAQs → install.liangai.org/#faq](https://install.liangai.org/#faq)
 
 ---
 
 ## Security Notes
 
 - **No keys or tokens baked in**: the script asks you to enter them at runtime.
-- **No API forwarding**: this repo and cli.liangai.org do **not** proxy any API request. All requests go directly to the API endpoint you chose.
-- **SHA256 published**: all hashes are listed in this README and on cli.liangai.org.
+- **No API forwarding**: this repo and install.liangai.org do **not** proxy any API request. All requests go directly to the API endpoint you chose.
+- **SHA256 published**: all hashes are listed in this README and on install.liangai.org.
 - **Full source in this repo**: every line is yours to inspect.
 
 ---
