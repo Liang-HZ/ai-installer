@@ -26,6 +26,8 @@ t() {
     zh:base_custom) echo "2. 自定义 OpenAI-compatible Base URL：适合中转站、反代、国内模型服务等，通常以 /v1 结尾。" ;;
     zh:base_prompt) echo "请输入 1 或 2，直接回车默认选择 1" ;;
     zh:base_custom_prompt) echo "请输入自定义 Base URL（例如 https://example.com/v1）" ;;
+    zh:base_invalid_scheme) echo "Base URL 必须以 https:// 开头。请复制服务商提供的 HTTPS 地址。" ;;
+    zh:base_invalid_chars) echo "Base URL 含有空白、换行或 shell 特殊字符。为保护你的终端，脚本已停止；请只粘贴纯 HTTPS 地址。" ;;
     zh:install_codex) echo "安装 Codex CLI" ;;
     zh:install_npm) echo "检测到 npm，使用 npm install -g @openai/codex@latest。" ;;
     zh:install_direct) echo "未检测到 npm，改为直接下载 OpenAI Codex 官方 GitHub Release。" ;;
@@ -49,6 +51,8 @@ t() {
     en:base_custom) echo "2. Custom OpenAI-compatible Base URL for relays, reverse proxies, or regional providers. It often ends with /v1." ;;
     en:base_prompt) echo "Enter 1 or 2. Press Enter for 1" ;;
     en:base_custom_prompt) echo "Enter the custom Base URL, for example https://example.com/v1" ;;
+    en:base_invalid_scheme) echo "Base URL must start with https://. Paste the HTTPS URL from your provider." ;;
+    en:base_invalid_chars) echo "Base URL contains whitespace, newlines, or shell metacharacters. To protect your terminal, setup stopped. Paste only the plain HTTPS URL." ;;
     en:install_codex) echo "Installing Codex CLI" ;;
     en:install_npm) echo "npm detected; using npm install -g @openai/codex@latest." ;;
     en:install_direct) echo "npm not found; downloading the official OpenAI Codex GitHub Release binary directly." ;;
@@ -67,6 +71,22 @@ step() { printf '\n==> %s\n' "$1"; }
 ok() { printf 'OK  %s\n' "$1"; }
 warn() { printf 'WARN %s\n' "$1"; }
 fail() { echo "$1" >&2; exit 1; }
+
+validate_base_url() {
+  local value="$1"
+  [[ "$value" == https://* ]] || fail "$(t base_invalid_scheme)"
+  # 用户粘贴的地址后面会写入 shell 启动文件；这里提前拦住会触发解释执行的字符。
+  case "$value" in
+    *[$' \t\r\n'\'\"\`\$\\\;\&\|\<\>\(\)\{\}]*)
+      fail "$(t base_invalid_chars)"
+      ;;
+  esac
+}
+
+shell_quote() {
+  # 写入 .bashrc/.zshrc 时只允许作为字符串保存，不能让 $()、反引号等被 shell 执行。
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
 
 ensure_linux() {
   [[ "$(uname -s)" == "Linux" ]] || fail "This installer is for Linux only."
@@ -97,12 +117,13 @@ read_api_key() {
 }
 
 resolve_base_url() {
-  [[ -n "$BASE_URL" ]] && { echo "$BASE_URL"; return; }
+  [[ -n "$BASE_URL" ]] && { validate_base_url "$BASE_URL"; echo "$BASE_URL"; return; }
   case "$BASE_URL_MODE" in
     openai|official) echo "$OPENAI_BASE_URL"; return ;;
     custom)
       read -r -p "$(t base_custom_prompt): " value
       [[ -n "$value" ]] || fail "Base URL is required."
+      validate_base_url "$value"
       echo "$value"; return ;;
   esac
   printf '\n%s\n' "$(t base_title)"
@@ -114,6 +135,7 @@ resolve_base_url() {
     2)
       read -r -p "$(t base_custom_prompt): " value
       [[ -n "$value" ]] || fail "Base URL is required."
+      validate_base_url "$value"
       echo "$value" ;;
     *) fail "Invalid choice." ;;
   esac
@@ -189,8 +211,8 @@ write_shell_exports() {
   sed "/${start}/,/${end}/d" "$rc" > "$tmp"
   cat >> "$tmp" <<EOF
 ${start}
-export OPENAI_API_KEY="$(printf '%s' "$key" | sed 's/"/\\"/g')"
-export OPENAI_BASE_URL="$(printf '%s' "$base_url" | sed 's/"/\\"/g')"
+export OPENAI_API_KEY=$(shell_quote "$key")
+export OPENAI_BASE_URL=$(shell_quote "$base_url")
 ${end}
 EOF
   mv "$tmp" "$rc"

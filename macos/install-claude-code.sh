@@ -6,7 +6,7 @@ AUTH_MODE="${CLAUDE_INSTALLER_AUTH_MODE:-prompt}"
 API_KEY="${CLAUDE_INSTALLER_API_KEY:-}"
 BASE_URL_MODE="${CLAUDE_INSTALLER_BASE_URL_MODE:-prompt}"
 BASE_URL="${CLAUDE_INSTALLER_BASE_URL:-}"
-STATUS_FILE="${TMPDIR:-/tmp}/liangai-claude-code-progress.html"
+STATUS_FILE="$(mktemp "${TMPDIR:-/tmp}/liangai-claude-code-progress.html.XXXXXX")"
 
 t() {
   local key="$1"
@@ -26,6 +26,8 @@ t() {
     zh:base_custom) echo "2. 自定义 Anthropic/Claude-compatible Base URL：适合中转站、反代或国内模型服务。请按服务商文档填写，不要盲目拼 /v1。" ;;
     zh:base_prompt) echo "请输入 1 或 2，直接回车默认选择 1" ;;
     zh:base_custom_prompt) echo "请输入自定义 Base URL（例如服务商给你的 Claude/Anthropic 地址）" ;;
+    zh:base_invalid_scheme) echo "Base URL 必须以 https:// 开头。请复制服务商提供的 HTTPS 地址。" ;;
+    zh:base_invalid_chars) echo "Base URL 含有空白、换行或 shell 特殊字符。为保护你的终端，脚本已停止；请只粘贴纯 HTTPS 地址。" ;;
     zh:claude) echo "安装 Claude Code" ;;
     zh:ccswitch) echo "安装 CC Switch" ;;
     zh:ccswitch_brew) echo "检测到 Homebrew，使用 brew install --cask cc-switch。" ;;
@@ -53,6 +55,8 @@ t() {
     en:base_custom) echo "2. Custom Anthropic/Claude-compatible Base URL for relays, reverse proxies, or regional providers. Follow provider docs; do not blindly append /v1." ;;
     en:base_prompt) echo "Enter 1 or 2. Press Enter for 1" ;;
     en:base_custom_prompt) echo "Enter the custom Base URL from your Claude/Anthropic-compatible provider" ;;
+    en:base_invalid_scheme) echo "Base URL must start with https://. Paste the HTTPS URL from your provider." ;;
+    en:base_invalid_chars) echo "Base URL contains whitespace, newlines, or shell metacharacters. To protect your terminal, setup stopped. Paste only the plain HTTPS URL." ;;
     en:claude) echo "Installing Claude Code" ;;
     en:ccswitch) echo "Installing CC Switch" ;;
     en:ccswitch_brew) echo "Homebrew detected; using brew install --cask cc-switch." ;;
@@ -72,6 +76,17 @@ t() {
 step() { printf '\n==> %s\n' "$1"; }
 ok() { printf 'OK  %s\n' "$1"; }
 warn() { printf 'WARN %s\n' "$1"; }
+
+validate_base_url() {
+  local value="$1"
+  [[ "$value" == https://* ]] || fail "$(t base_invalid_scheme)"
+  # Base URL 来自用户复制粘贴；提前拒绝会污染终端或配置文件的内容。
+  case "$value" in
+    *[$' \t\r\n'\'\"\`\$\\\;\&\|\<\>\(\)\{\}]*)
+      fail "$(t base_invalid_chars)"
+      ;;
+  esac
+}
 
 status_page() {
   local title="$1"
@@ -172,12 +187,13 @@ resolve_base_url() {
     echo ""
     return
   fi
-  [[ -n "$BASE_URL" ]] && { echo "$BASE_URL"; return; }
+  [[ -n "$BASE_URL" ]] && { validate_base_url "$BASE_URL"; echo "$BASE_URL"; return; }
   case "$BASE_URL_MODE" in
     official) echo ""; return ;;
     custom)
       read -r -p "$(t base_custom_prompt): " value
       [[ -n "$value" ]] || { echo "Base URL is required." >&2; exit 1; }
+      validate_base_url "$value"
       echo "$value"
       return
       ;;
@@ -192,6 +208,7 @@ resolve_base_url() {
     2)
       read -r -p "$(t base_custom_prompt): " value
       [[ -n "$value" ]] || { echo "Base URL is required." >&2; exit 1; }
+      validate_base_url "$value"
       echo "$value"
       ;;
     *) echo "Invalid choice." >&2; exit 1 ;;
