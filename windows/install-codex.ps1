@@ -2,8 +2,10 @@
 
 [CmdletBinding()]
 param(
-    [string]$ApiKey = "PLACEHOLDER_OPENAI_API_KEY",
-    [string]$BaseUrl = "PLACEHOLDER_BASE_URL",
+    [ValidateSet("prompt", "login", "api-key")]
+    [string]$AuthMode = "prompt",
+    [string]$ApiKey = "",
+    [string]$BaseUrl = "",
     [ValidateSet("prompt", "openai", "custom")]
     [string]$BaseUrlMode = "prompt",
     [string]$Model = "gpt-5.5",
@@ -23,6 +25,10 @@ if ($env:CODEX_INSTALLER_LANGUAGE -eq "zh" -or $env:CODEX_INSTALLER_LANGUAGE -eq
     $Language = $env:CODEX_INSTALLER_LANGUAGE
 }
 
+if ($env:CODEX_INSTALLER_AUTH_MODE -eq "prompt" -or $env:CODEX_INSTALLER_AUTH_MODE -eq "login" -or $env:CODEX_INSTALLER_AUTH_MODE -eq "api-key") {
+    $AuthMode = $env:CODEX_INSTALLER_AUTH_MODE
+}
+
 if ($env:CODEX_INSTALLER_BASE_URL_MODE -eq "prompt" -or $env:CODEX_INSTALLER_BASE_URL_MODE -eq "openai" -or $env:CODEX_INSTALLER_BASE_URL_MODE -eq "custom") {
     $BaseUrlMode = $env:CODEX_INSTALLER_BASE_URL_MODE
 }
@@ -36,7 +42,14 @@ $Messages = @{
         OkPrefix = "完成"
         WarnPrefix = "警告"
         Title = "Windows 版 OpenAI Codex CLI 一键安装配置"
-        Intro = "此脚本会按需安装 Node.js LTS、安装 Codex CLI，并写入 ~/.codex/config.toml。"
+        Intro = "此脚本会调用 OpenAI 官方 Codex 安装器安装 CLI，并写入 ~/.codex/config.toml。"
+        AuthMenuTitle = "请选择 Codex 的使用方式："
+        AuthMenuLogin = "1. ChatGPT 官方登录/订阅：不写 API key，安装后运行 codex 并按提示登录。"
+        AuthMenuApiKey = "2. API key / 中转站 key：写入 OPENAI_API_KEY，并配置官方或自定义 OpenAI-compatible Base URL。"
+        AuthMenuPrompt = "请输入 1 或 2，直接回车默认选择 1"
+        AuthInvalidChoice = "无效选择。请输入 1 或 2。"
+        UsingLogin = "将使用 ChatGPT 官方登录模式，不写 API key。"
+        UsingApiKey = "将使用 API key / 中转站 key 模式。"
         CheckNode = "检查 Node.js 和 npm"
         NodeAlready = "Node.js 已安装: {0}"
         NpmAlready = "npm 已安装: {0}"
@@ -46,11 +59,11 @@ $Messages = @{
         NodePathMissing = "Node.js 已安装，但当前 PowerShell 会话中找不到 node/npm。请关闭 PowerShell，重新打开后再运行此脚本。"
         NodeInstalled = "Node.js 已安装: {0}"
         NpmInstalled = "npm 已安装: {0}"
-        InstallCodex = "正在安装或升级 OpenAI Codex CLI"
-        NpmCodexFailed = "npm 安装 @openai/codex@latest 失败。退出码: {0}"
+        InstallCodex = "正在运行 OpenAI 官方安装器：https://chatgpt.com/codex/install.ps1"
+        NpmCodexFailed = "OpenAI 官方 Codex 安装器执行失败。退出码: {0}"
         CodexPathMissingAfterInstall = "Codex 已安装，但 PATH 中找不到 codex。请打开新的 PowerShell 窗口后运行: codex"
         CodexInstalled = "Codex CLI 已安装: {0}"
-        ApiKeyPlaceholder = "API key 仍是占位符。"
+        ApiKeyPlaceholder = "需要 API key。"
         ApiKeyPrompt = "请粘贴 Codex 使用的 API key"
         ApiKeyRequired = "API key 不能为空。"
         BaseUrlMenuTitle = "请选择 Codex 连接的 API 服务地址："
@@ -81,7 +94,14 @@ $Messages = @{
         OkPrefix = "OK"
         WarnPrefix = "WARN"
         Title = "OpenAI Codex CLI one-click setup for Windows"
-        Intro = "This script installs Node.js LTS if needed, installs Codex CLI, and writes ~/.codex/config.toml."
+        Intro = "This script runs the official OpenAI Codex installer, then writes ~/.codex/config.toml."
+        AuthMenuTitle = "Choose how to use Codex:"
+        AuthMenuLogin = "1. ChatGPT login/subscription: no API key is written. Run codex after install and sign in."
+        AuthMenuApiKey = "2. API key / relay key: writes OPENAI_API_KEY and configures the official or custom OpenAI-compatible Base URL."
+        AuthMenuPrompt = "Enter 1 or 2. Press Enter for 1"
+        AuthInvalidChoice = "Invalid choice. Enter 1 or 2."
+        UsingLogin = "Using ChatGPT login mode; no API key will be written."
+        UsingApiKey = "Using API key / relay key mode."
         CheckNode = "Checking Node.js and npm"
         NodeAlready = "Node.js is already installed: {0}"
         NpmAlready = "npm is already installed: {0}"
@@ -91,11 +111,11 @@ $Messages = @{
         NodePathMissing = "Node.js was installed, but node/npm is not available in this PowerShell session. Close PowerShell, reopen it, and rerun this script."
         NodeInstalled = "Node.js installed: {0}"
         NpmInstalled = "npm installed: {0}"
-        InstallCodex = "Installing or upgrading OpenAI Codex CLI"
-        NpmCodexFailed = "npm failed to install @openai/codex@latest. Exit code: {0}"
+        InstallCodex = "Running the official OpenAI installer: https://chatgpt.com/codex/install.ps1"
+        NpmCodexFailed = "The official OpenAI Codex installer failed. Exit code: {0}"
         CodexPathMissingAfterInstall = "Codex installed, but codex is not available on PATH. Open a new PowerShell window and run: codex"
         CodexInstalled = "Codex CLI installed: {0}"
-        ApiKeyPlaceholder = "API key placeholder was not replaced."
+        ApiKeyPlaceholder = "API key is required."
         ApiKeyPrompt = "Paste the API key for Codex"
         ApiKeyRequired = "API key is required."
         BaseUrlMenuTitle = "Choose the API base URL Codex should use:"
@@ -217,11 +237,14 @@ function Install-NodeWithWinget {
 
 function Install-CodexCli {
     Write-Step (T "InstallCodex")
-    & npm install -g "@openai/codex@latest"
+    $global:LASTEXITCODE = 0
+    Invoke-Expression (Invoke-RestMethod -Uri "https://chatgpt.com/codex/install.ps1")
     if ($LASTEXITCODE -ne 0) {
         throw (T "NpmCodexFailed" $LASTEXITCODE)
     }
 
+    Add-PathForCurrentProcess "$env:USERPROFILE\.codex\bin"
+    Add-PathForCurrentProcess "$env:USERPROFILE\.local\bin"
     Add-PathForCurrentProcess "$env:APPDATA\npm"
 
     $codex = Get-CommandPath "codex"
@@ -233,8 +256,38 @@ function Install-CodexCli {
     & codex --version
 }
 
+function Resolve-AuthMode {
+    if ($AuthMode -eq "login") {
+        Write-Ok (T "UsingLogin")
+        return "login"
+    }
+
+    if ($AuthMode -eq "api-key") {
+        Write-Ok (T "UsingApiKey")
+        return "api-key"
+    }
+
+    Write-Host ""
+    Write-Host (T "AuthMenuTitle") -ForegroundColor Cyan
+    Write-Host (T "AuthMenuLogin")
+    Write-Host (T "AuthMenuApiKey")
+    $choice = Read-Host (T "AuthMenuPrompt")
+
+    if ([string]::IsNullOrWhiteSpace($choice) -or $choice -eq "1") {
+        Write-Ok (T "UsingLogin")
+        return "login"
+    }
+
+    if ($choice -eq "2") {
+        Write-Ok (T "UsingApiKey")
+        return "api-key"
+    }
+
+    throw (T "AuthInvalidChoice")
+}
+
 function Read-ApiKeyIfNeeded {
-    if ($ApiKey -and $ApiKey -ne "PLACEHOLDER_OPENAI_API_KEY") {
+    if ($ApiKey) {
         return $ApiKey
     }
 
@@ -258,7 +311,7 @@ function Read-ApiKeyIfNeeded {
 }
 
 function Resolve-BaseUrl {
-    if ($BaseUrl -and $BaseUrl -ne "PLACEHOLDER_BASE_URL") {
+    if ($BaseUrl) {
         Write-Ok (T "BaseUrlUsingCustom" $BaseUrl)
         Write-Warn (T "BaseUrlCustomHint")
         return $BaseUrl
@@ -310,15 +363,12 @@ function Escape-TomlString {
 
 function Write-CodexConfig {
     param(
+        [string]$FinalAuthMode,
         [string]$FinalApiKey,
         [string]$FinalBaseUrl
     )
 
     Write-Step (T "WriteConfig")
-
-    if ([string]::IsNullOrWhiteSpace($FinalBaseUrl) -or $FinalBaseUrl -eq "PLACEHOLDER_BASE_URL") {
-        throw (T "BaseUrlMissing")
-    }
 
     if ([string]::IsNullOrWhiteSpace($Model) -or $Model -eq "PLACEHOLDER_MODEL") {
         throw (T "ModelMissing")
@@ -334,9 +384,29 @@ function Write-CodexConfig {
         Write-Ok (T "ConfigBackup" $stamp)
     }
 
+    $escapedModel = Escape-TomlString $Model
+
+    if ($FinalAuthMode -eq "login") {
+        $config = @"
+model = "$escapedModel"
+model_reasoning_effort = "$ReasoningEffort"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[windows]
+sandbox = "$WindowsSandbox"
+"@
+        Set-Content -Path $configPath -Value $config -Encoding UTF8
+        Write-Ok (T "ConfigWritten" $configPath)
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($FinalBaseUrl)) {
+        throw (T "BaseUrlMissing")
+    }
+
     $providerId = "oneclick_openai_compatible"
     $escapedBaseUrl = Escape-TomlString $FinalBaseUrl
-    $escapedModel = Escape-TomlString $Model
 
     $config = @"
 model = "$escapedModel"
@@ -385,11 +455,13 @@ function Test-CodexCommand {
 Write-Host (T "Title") -ForegroundColor White
 Write-Host (T "Intro")
 
-$finalBaseUrl = Resolve-BaseUrl
-$finalApiKey = Read-ApiKeyIfNeeded
-Install-NodeWithWinget
+$finalAuthMode = Resolve-AuthMode
+if ($finalAuthMode -eq "api-key") {
+    $finalBaseUrl = Resolve-BaseUrl
+    $finalApiKey = Read-ApiKeyIfNeeded
+}
 Install-CodexCli
-Write-CodexConfig -FinalApiKey $finalApiKey -FinalBaseUrl $finalBaseUrl
+Write-CodexConfig -FinalAuthMode $finalAuthMode -FinalApiKey $finalApiKey -FinalBaseUrl $finalBaseUrl
 Test-CodexCommand
 
 Write-Host ""

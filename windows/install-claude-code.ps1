@@ -4,10 +4,10 @@
 param(
     [ValidateSet("prompt", "official", "api-key", "auth-token")]
     [string]$AuthMode = "prompt",
-    [string]$ApiKey = "PLACEHOLDER_CLAUDE_API_KEY_OR_TOKEN",
+    [string]$ApiKey = "",
     [ValidateSet("prompt", "official", "custom")]
     [string]$BaseUrlMode = "prompt",
-    [string]$BaseUrl = "PLACEHOLDER_BASE_URL",
+    [string]$BaseUrl = "",
     [ValidateSet("zh", "en")]
     [string]$Language = "zh",
     [switch]$LaunchCcSwitch,
@@ -72,8 +72,8 @@ $Messages = @{
         GitBashMissing = "未找到 Git Bash。Claude Code 原生 Windows 模式需要 Git for Windows。"
         CheckClaude = "检查 Claude Code"
         ClaudeInstalled = "Claude Code 已就绪: {0}"
-        InstallClaude = "正在安装 Claude Code"
-        ClaudeInstallFailed = "Claude Code 安装失败。退出码: {0}"
+        InstallClaude = "正在运行 Anthropic 官方安装器：https://claude.ai/install.ps1"
+        ClaudeInstallFailed = "Claude Code 官方安装器执行失败。退出码: {0}"
         ClaudeMissing = "Claude Code 安装后仍未在 PATH 中找到 claude。请打开新的 PowerShell 后重试。"
         InstallCcSwitch = "正在安装 CC Switch（farion1231/cc-switch Portable 版）"
         DownloadCcSwitch = "正在下载: {0}"
@@ -131,8 +131,8 @@ $Messages = @{
         GitBashMissing = "Git Bash was not found. Claude Code native Windows mode requires Git for Windows."
         CheckClaude = "Checking Claude Code"
         ClaudeInstalled = "Claude Code is ready: {0}"
-        InstallClaude = "Installing Claude Code"
-        ClaudeInstallFailed = "Claude Code install failed. Exit code: {0}"
+        InstallClaude = "Running the official Anthropic installer: https://claude.ai/install.ps1"
+        ClaudeInstallFailed = "The official Claude Code installer failed. Exit code: {0}"
         ClaudeMissing = "Claude Code installed, but claude is not on PATH. Open a new PowerShell window and retry."
         InstallCcSwitch = "Installing CC Switch portable build from farion1231/cc-switch"
         DownloadCcSwitch = "Downloading: {0}"
@@ -354,12 +354,14 @@ function Install-ClaudeCode {
     }
 
     Write-Step (T "InstallClaude")
-    & winget install --id Anthropic.ClaudeCode -e --accept-package-agreements --accept-source-agreements
+    $global:LASTEXITCODE = 0
+    Invoke-Expression (Invoke-RestMethod -Uri "https://claude.ai/install.ps1")
     if ($LASTEXITCODE -ne 0) {
         throw (T "ClaudeInstallFailed" $LASTEXITCODE)
     }
 
     Add-PathForCurrentProcess "$env:USERPROFILE\.local\bin"
+    Add-PathForCurrentProcess "$env:LOCALAPPDATA\Programs\Claude"
     Add-PathForCurrentProcess "$env:LOCALAPPDATA\Programs\ClaudeCode"
 
     $claude = Get-CommandPath "claude"
@@ -375,7 +377,7 @@ function Install-CcSwitch {
     Write-Step (T "InstallCcSwitch")
 
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/farion1231/cc-switch/releases/latest" -Headers @{ "User-Agent" = "claude-code-oneclick-installer" }
-    $asset = $release.assets | Where-Object { $_.name -match "Windows-Portable\.zip$" } | Select-Object -First 1
+    $asset = $release.assets | Where-Object { $_.name -like "*Windows-Portable.zip" } | Select-Object -First 1
     if ($null -eq $asset) {
         throw (T "CcSwitchAssetMissing")
     }
@@ -480,7 +482,7 @@ function Resolve-ApiKey {
         return $null
     }
 
-    if ($ApiKey -and $ApiKey -ne "PLACEHOLDER_CLAUDE_API_KEY_OR_TOKEN") {
+    if ($ApiKey) {
         return $ApiKey
     }
 
@@ -515,7 +517,7 @@ function Resolve-BaseUrl {
         return $null
     }
 
-    if ($BaseUrl -and $BaseUrl -ne "PLACEHOLDER_BASE_URL") {
+    if ($BaseUrl) {
         Write-Ok (T "UsingCustomBaseUrl" $BaseUrl)
         return $BaseUrl
     }

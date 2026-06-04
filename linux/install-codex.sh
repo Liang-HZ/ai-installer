@@ -14,7 +14,7 @@ t() {
   local key="$1"
   case "${LANGUAGE}:${key}" in
     zh:title) echo "Linux 版 Codex CLI 一键安装配置" ;;
-    zh:intro) echo "此脚本会安装 Codex CLI，并写入 ~/.codex/config.toml。有 npm 时优先使用 npm；否则直接下载 OpenAI Codex 官方 GitHub Release 二进制。" ;;
+    zh:intro) echo "此脚本会补齐基础依赖，调用 OpenAI 官方 Codex 安装器安装 CLI，并写入 ~/.codex/config.toml。" ;;
     zh:auth_title) echo "请选择 Codex 的使用方式：" ;;
     zh:auth_login) echo "1. ChatGPT 官方登录/订阅：不写 API key，安装后运行 codex 并按提示登录。" ;;
     zh:auth_key) echo "2. API key / 中转站 key：写入 OPENAI_API_KEY，并配置官方或自定义 OpenAI-compatible Base URL。" ;;
@@ -29,8 +29,9 @@ t() {
     zh:base_invalid_scheme) echo "Base URL 必须以 https:// 开头。请复制服务商提供的 HTTPS 地址。" ;;
     zh:base_invalid_chars) echo "Base URL 含有空白、换行或 shell 特殊字符。为保护你的终端，脚本已停止；请只粘贴纯 HTTPS 地址。" ;;
     zh:install_codex) echo "安装 Codex CLI" ;;
-    zh:install_npm) echo "检测到 npm，使用 npm install -g @openai/codex@latest。" ;;
-    zh:install_direct) echo "未检测到 npm，改为直接下载 OpenAI Codex 官方 GitHub Release。" ;;
+    zh:install_official) echo "正在运行 OpenAI 官方安装器：https://chatgpt.com/codex/install.sh" ;;
+    zh:install_deps) echo "正在安装缺失的基础依赖: $2" ;;
+    zh:deps_failed) echo "基础依赖安装失败。当前系统不在脚本支持的包管理器范围内，或缺少 sudo/root 权限；请联系页面作者补充该系统支持。" ;;
     zh:download) echo "正在下载: $2" ;;
     zh:asset_missing) echo "没有找到适合当前 Linux 架构的 Codex Release 资产。" ;;
     zh:write_config) echo "写入 Codex 配置" ;;
@@ -39,7 +40,7 @@ t() {
     zh:login_done) echo "安装完成。请打开新的终端，进入项目文件夹运行 codex，并按提示登录 ChatGPT。" ;;
     zh:verify_fail) echo "未找到 codex 命令。请打开新的终端后重试，或检查 Codex 安装是否成功。" ;;
     en:title) echo "Codex CLI one-click setup for Linux" ;;
-    en:intro) echo "This script installs Codex CLI and writes ~/.codex/config.toml. It uses npm when available, otherwise it downloads the official GitHub Release binary directly." ;;
+    en:intro) echo "This script installs base prerequisites, runs the official OpenAI Codex installer, and writes ~/.codex/config.toml." ;;
     en:auth_title) echo "Choose how to use Codex:" ;;
     en:auth_login) echo "1. ChatGPT login/subscription: no API key is written. Run codex after install and sign in." ;;
     en:auth_key) echo "2. API key / relay key: writes OPENAI_API_KEY and configures official or custom OpenAI-compatible Base URL." ;;
@@ -54,8 +55,9 @@ t() {
     en:base_invalid_scheme) echo "Base URL must start with https://. Paste the HTTPS URL from your provider." ;;
     en:base_invalid_chars) echo "Base URL contains whitespace, newlines, or shell metacharacters. To protect your terminal, setup stopped. Paste only the plain HTTPS URL." ;;
     en:install_codex) echo "Installing Codex CLI" ;;
-    en:install_npm) echo "npm detected; using npm install -g @openai/codex@latest." ;;
-    en:install_direct) echo "npm not found; downloading the official OpenAI Codex GitHub Release binary directly." ;;
+    en:install_official) echo "Running the official OpenAI installer: https://chatgpt.com/codex/install.sh" ;;
+    en:install_deps) echo "Installing missing base prerequisites: $2" ;;
+    en:deps_failed) echo "Failed to install base prerequisites. This system is outside the supported package manager set, or sudo/root permission is missing; contact the page owner to add support for this system." ;;
     en:download) echo "Downloading: $2" ;;
     en:asset_missing) echo "Could not find a Codex Release asset for this Linux architecture." ;;
     en:write_config) echo "Writing Codex configuration" ;;
@@ -90,6 +92,50 @@ shell_quote() {
 
 ensure_linux() {
   [[ "$(uname -s)" == "Linux" ]] || fail "This installer is for Linux only."
+}
+
+run_as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    "$@"
+    return
+  fi
+  command -v sudo >/dev/null 2>&1 || fail "$(t deps_failed)"
+  sudo "$@"
+}
+
+install_linux_packages() {
+  local packages=("$@")
+  [[ "${#packages[@]}" -gt 0 ]] || return
+  step "$(t install_deps "${packages[*]}")"
+  if command -v apt-get >/dev/null 2>&1; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y "${packages[@]}"
+  elif command -v dnf >/dev/null 2>&1; then
+    run_as_root dnf install -y "${packages[@]}"
+  elif command -v yum >/dev/null 2>&1; then
+    run_as_root yum install -y "${packages[@]}"
+  elif command -v pacman >/dev/null 2>&1; then
+    run_as_root pacman -Sy --noconfirm --needed "${packages[@]}"
+  elif command -v zypper >/dev/null 2>&1; then
+    run_as_root zypper --non-interactive install "${packages[@]}"
+  else
+    fail "$(t deps_failed)"
+  fi
+}
+
+ensure_codex_prereqs() {
+  local packages=()
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    packages+=("curl")
+  fi
+  command -v tar >/dev/null 2>&1 || packages+=("tar")
+  command -v mktemp >/dev/null 2>&1 || packages+=("coreutils")
+  if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1 && ! command -v openssl >/dev/null 2>&1; then
+    packages+=("coreutils")
+  fi
+  if [[ "${#packages[@]}" -gt 0 ]]; then
+    install_linux_packages "${packages[@]}"
+  fi
 }
 
 resolve_auth_mode() {
@@ -165,33 +211,14 @@ install_codex() {
     ok "$(command -v codex)"
     return
   fi
-  if command -v npm >/dev/null 2>&1; then
-    ok "$(t install_npm)"
-    npm install -g @openai/codex@latest
-    return
+  ensure_codex_prereqs
+  ok "$(t install_official)"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://chatgpt.com/codex/install.sh | sh
+  else
+    wget -qO- https://chatgpt.com/codex/install.sh | sh
   fi
-  warn "$(t install_direct)"
-  local arch target api asset_url tmp extract binary
-  arch="$(uname -m)"
-  case "$arch" in
-    x86_64|amd64) target="x86_64-unknown-linux-gnu" ;;
-    aarch64|arm64) target="aarch64-unknown-linux-gnu" ;;
-    *) fail "Unsupported architecture: $arch" ;;
-  esac
-  api="$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest)"
-  asset_url="$(printf '%s' "$api" | grep -Eo "https://[^\"]*codex-${target}\\.tar\\.gz" | head -n 1 || true)"
-  [[ -n "$asset_url" ]] || fail "$(t asset_missing)"
-  tmp="$(mktemp -d)"
-  extract="${tmp}/extract"
-  mkdir -p "$extract"
-  step "$(t download "$asset_url")"
-  curl -fL "$asset_url" -o "${tmp}/codex.tar.gz"
-  tar -xzf "${tmp}/codex.tar.gz" -C "$extract"
-  binary="$(find "$extract" -type f -name 'codex-*' -print -quit)"
-  [[ -n "$binary" && -f "$binary" ]] || fail "$(t asset_missing)"
-  ensure_local_bin_path
-  cp "$binary" "${HOME}/.local/bin/codex"
-  chmod +x "${HOME}/.local/bin/codex"
+  export PATH="${HOME}/.codex/bin:${HOME}/.local/bin:${PATH}"
 }
 
 toml_escape() {

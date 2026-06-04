@@ -223,6 +223,7 @@ install_claude() {
     ensure_local_bin_path
     return
   fi
+  command -v curl >/dev/null 2>&1 || fail "未找到 curl。macOS 正常应内置 curl；请先修复系统命令行工具后重试。"
   curl -fsSL https://claude.ai/install.sh | bash
   ensure_local_bin_path
 }
@@ -248,11 +249,17 @@ install_ccswitch() {
   status_page "安装 CC Switch" "正在检查或安装 CC Switch。"
   if has_homebrew; then
     ok "$(t ccswitch_brew)"
-    brew install --cask cc-switch || brew upgrade --cask cc-switch || true
+    if brew list --cask cc-switch >/dev/null 2>&1; then
+      brew upgrade --cask cc-switch
+    else
+      brew install --cask cc-switch
+    fi
     return
   fi
 
   warn "$(t ccswitch_direct)"
+  command -v curl >/dev/null 2>&1 || fail "未找到 curl。macOS 正常应内置 curl；请先修复系统命令行工具后重试。"
+  [[ -x /usr/bin/unzip ]] || fail "未找到 /usr/bin/unzip，无法解压 CC Switch 官方 zip。"
   local api asset_url tmp extract app_path dest_dir
   api="$(curl -fsSL https://api.github.com/repos/farion1231/cc-switch/releases/latest)"
   asset_url="$(printf '%s' "$api" | grep -Eo 'https://[^"]+CC-Switch-[^"]+-macOS\.zip' | head -n 1 || true)"

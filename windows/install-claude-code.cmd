@@ -53,11 +53,21 @@ if not "%AUTH_CHOICE%"=="1" (
 
 echo.
 echo ==^> 检查 winget
-call :status "检查 winget" "确认系统具备 winget 安装能力。"
+call :status "检查 winget" "确认系统可以自动安装 Git for Windows。"
 where winget >nul 2>nul
 if errorlevel 1 (
   call :status "安装失败" "未找到 winget。请先更新 Windows 应用安装程序。"
   echo 未找到 winget。请先更新 Windows 应用安装程序，然后重新运行此脚本。
+  exit /b 1
+)
+
+echo.
+echo ==^> 检查 curl
+call :status "检查 curl" "确认系统可以运行 Anthropic 官方 Claude Code 安装器。"
+where curl.exe >nul 2>nul
+if errorlevel 1 (
+  call :status "安装失败" "未找到 curl.exe，无法下载 Anthropic 官方 Claude Code 安装器。"
+  echo 未找到 curl.exe，无法下载 Anthropic 官方 Claude Code 安装器。
   exit /b 1
 )
 
@@ -85,17 +95,24 @@ if not exist "%GIT_BASH%" (
 
 echo.
 echo ==^> 安装 Claude Code
-call :status "安装 Claude Code" "正在通过 winget 安装或检查 Anthropic Claude Code。"
+call :status "安装 Claude Code" "正在运行 Anthropic 官方安装器：https://claude.ai/install.cmd"
 where claude >nul 2>nul
 if errorlevel 1 (
-  winget install --id Anthropic.ClaudeCode -e --accept-package-agreements --accept-source-agreements
+  set "CLAUDE_INSTALLER=%TEMP%\claude-official-install.cmd"
+  curl.exe -fsSL https://claude.ai/install.cmd -o "%CLAUDE_INSTALLER%"
   if errorlevel 1 (
-    call :status "安装失败" "Claude Code 安装失败。"
-    echo Claude Code 安装失败。
+    call :status "安装失败" "Claude Code 官方安装器下载失败。"
+    echo Claude Code 官方安装器下载失败。
+    exit /b 1
+  )
+  call "%CLAUDE_INSTALLER%"
+  if errorlevel 1 (
+    call :status "安装失败" "Claude Code 官方安装器执行失败。"
+    echo Claude Code 官方安装器执行失败。
     exit /b 1
   )
 )
-set "PATH=%USERPROFILE%\.local\bin;%LOCALAPPDATA%\Programs\ClaudeCode;%PATH%"
+set "PATH=%USERPROFILE%\.local\bin;%LOCALAPPDATA%\Programs\Claude;%LOCALAPPDATA%\Programs\ClaudeCode;%PATH%"
 where claude >nul 2>nul
 if errorlevel 1 (
   call :status "需要新的 CMD" "Claude Code 已安装，但当前 CMD 找不到 claude。脚本会继续写配置，并在最后打开新的 CMD。"

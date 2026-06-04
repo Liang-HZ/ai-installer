@@ -16,7 +16,7 @@ t() {
   local key="$1"
   case "${LANGUAGE}:${key}" in
     zh:title) echo "macOS 版 Codex CLI 一键安装配置" ;;
-    zh:intro) echo "此脚本会安装 Codex CLI，并写入 ~/.codex/config.toml。有 Homebrew 时优先使用 Homebrew；没有 Homebrew 时直接下载官方 GitHub Release 二进制。" ;;
+    zh:intro) echo "此脚本会调用 OpenAI 官方 Codex 安装器安装 CLI，并写入 ~/.codex/config.toml。" ;;
     zh:auth_title) echo "请选择 Codex 的使用方式：" ;;
     zh:auth_login) echo "1. ChatGPT 官方登录/订阅：不写 API key，安装后运行 codex 并按提示登录。适合 Plus/Pro/Business/Edu/Enterprise。" ;;
     zh:auth_key) echo "2. API key / 中转站 key：写入 OPENAI_API_KEY，并配置官方或自定义 OpenAI-compatible Base URL。" ;;
@@ -31,17 +31,16 @@ t() {
     zh:base_invalid_scheme) echo "Base URL 必须以 https:// 开头。请复制服务商提供的 HTTPS 地址。" ;;
     zh:base_invalid_chars) echo "Base URL 含有空白、换行或 shell 特殊字符。为保护你的终端，脚本已停止；请只粘贴纯 HTTPS 地址。" ;;
     zh:install_codex) echo "安装 Codex CLI" ;;
-    zh:install_codex_brew) echo "检测到 Homebrew，使用 brew install --cask codex。" ;;
-    zh:install_codex_direct) echo "未检测到 Homebrew，改为直接下载 OpenAI Codex 官方 GitHub Release。" ;;
+    zh:install_codex_official) echo "正在运行 OpenAI 官方安装器：https://chatgpt.com/codex/install.sh" ;;
     zh:download) echo "正在下载: $2" ;;
     zh:write_config) echo "写入 Codex 配置" ;;
     zh:backup) echo "已有配置已备份: $2" ;;
     zh:done) echo "安装配置完成。已打开新的 Terminal；也可以在当前终端执行 source ~/.zshrc 后运行: codex" ;;
     zh:login_done) echo "安装完成。已打开新的 Terminal；也可以在当前终端执行 source ~/.zshrc 后运行 codex，并按提示登录 ChatGPT。" ;;
-    zh:asset_missing) echo "没有找到适合当前 Mac 架构的 Codex Release 资产。" ;;
+    zh:official_installer_missing) echo "未找到 curl。macOS 正常应内置 curl；请先修复系统命令行工具后重试。" ;;
     zh:verify_fail) echo "未找到 codex 命令。请打开新的终端后重试，或检查 Codex 安装是否成功。" ;;
     en:title) echo "Codex CLI one-click setup for macOS" ;;
-    en:intro) echo "This script installs Codex CLI and writes ~/.codex/config.toml. It uses Homebrew when available, otherwise it downloads the official GitHub Release binary directly." ;;
+    en:intro) echo "This script runs the official OpenAI Codex installer, then writes ~/.codex/config.toml." ;;
     en:auth_title) echo "Choose how to use Codex:" ;;
     en:auth_login) echo "1. ChatGPT login/subscription: no API key is written. Run codex after install and sign in. Use this for Plus/Pro/Business/Edu/Enterprise." ;;
     en:auth_key) echo "2. API key / relay key: writes OPENAI_API_KEY and configures official or custom OpenAI-compatible Base URL." ;;
@@ -56,14 +55,13 @@ t() {
     en:base_invalid_scheme) echo "Base URL must start with https://. Paste the HTTPS URL from your provider." ;;
     en:base_invalid_chars) echo "Base URL contains whitespace, newlines, or shell metacharacters. To protect your terminal, setup stopped. Paste only the plain HTTPS URL." ;;
     en:install_codex) echo "Installing Codex CLI" ;;
-    en:install_codex_brew) echo "Homebrew detected; using brew install --cask codex." ;;
-    en:install_codex_direct) echo "Homebrew not found; downloading the official OpenAI Codex GitHub Release binary directly." ;;
+    en:install_codex_official) echo "Running the official OpenAI installer: https://chatgpt.com/codex/install.sh" ;;
     en:download) echo "Downloading: $2" ;;
     en:write_config) echo "Writing Codex configuration" ;;
     en:backup) echo "Existing config backed up: $2" ;;
     en:done) echo "Setup complete. A new Terminal was opened. You can also run source ~/.zshrc in the current terminal, then run: codex" ;;
     en:login_done) echo "Setup complete. A new Terminal was opened. You can also run source ~/.zshrc in the current terminal, then run codex and sign in with ChatGPT." ;;
-    en:asset_missing) echo "Could not find a Codex Release asset for this Mac architecture." ;;
+    en:official_installer_missing) echo "curl was not found. macOS normally includes curl; repair the system command line tools and rerun this script." ;;
     en:verify_fail) echo "codex command was not found. Open a new terminal and retry, or check whether Codex installed successfully." ;;
     *) echo "$key" ;;
   esac
@@ -137,16 +135,6 @@ ensure_macos() {
   if [[ "$(uname -s)" != "Darwin" ]]; then
     fail "This installer is for macOS only."
   fi
-}
-
-load_brew_path() {
-  [[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
-  [[ -x /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
-}
-
-has_homebrew() {
-  load_brew_path
-  command -v brew >/dev/null 2>&1
 }
 
 resolve_auth_mode() {
@@ -225,45 +213,10 @@ install_codex() {
     return
   fi
 
-  if has_homebrew; then
-    ok "$(t install_codex_brew)"
-    brew install --cask codex
-    return
-  fi
-
-  warn "$(t install_codex_direct)"
-  local arch target api asset_url tmp extract binary_name
-  arch="$(uname -m)"
-  case "$arch" in
-    arm64) target="aarch64-apple-darwin" ;;
-    x86_64) target="x86_64-apple-darwin" ;;
-    *) fail "Unsupported architecture: $arch" ;;
-  esac
-
-  api="$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest)"
-  asset_url="$(printf '%s' "$api" | grep -Eo "https://[^\"]*codex-${target}\\.tar\\.gz" | head -n 1 || true)"
-  if [[ -z "$asset_url" ]]; then
-    fail "$(t asset_missing)"
-  fi
-
-  tmp="$(mktemp -d)"
-  extract="${tmp}/extract"
-  mkdir -p "$extract" "${HOME}/.local/bin"
-  step "$(t download "$asset_url")"
-  curl -fL "$asset_url" -o "${tmp}/codex.tar.gz"
-  tar -xzf "${tmp}/codex.tar.gz" -C "$extract"
-  binary_name="codex-${target}"
-  if [[ ! -f "${extract}/${binary_name}" ]]; then
-    binary_name="$(find "$extract" -type f -name 'codex-*' -print -quit)"
-  else
-    binary_name="${extract}/${binary_name}"
-  fi
-  if [[ -z "$binary_name" || ! -f "$binary_name" ]]; then
-    fail "$(t asset_missing)"
-  fi
-  cp "$binary_name" "${HOME}/.local/bin/codex"
-  chmod +x "${HOME}/.local/bin/codex"
-  ensure_local_bin_path
+  command -v curl >/dev/null 2>&1 || fail "$(t official_installer_missing)"
+  ok "$(t install_codex_official)"
+  curl -fsSL https://chatgpt.com/codex/install.sh | sh
+  export PATH="${HOME}/.codex/bin:${HOME}/.local/bin:${PATH}"
 }
 
 ensure_local_bin_path() {

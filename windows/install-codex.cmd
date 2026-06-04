@@ -12,7 +12,7 @@ call :status "等待用户选择" "请选择 ChatGPT 登录或 API key 模式。
 start "" "%STATUS_FILE%"
 
 echo Windows 版 Codex CLI 一键安装配置
-echo 此脚本在 CMD 中运行，会安装 Node.js、Codex CLI，并写入 %%USERPROFILE%%\.codex\config.toml。
+echo 此脚本在 CMD 中运行，会调用 OpenAI 官方安装器安装 Codex CLI，并写入 %%USERPROFILE%%\.codex\config.toml。
 echo.
 echo 请选择 Codex 的使用方式：
 echo 1. ChatGPT 官方登录/订阅：不写 API key，安装后在新的 CMD 中运行 codex 并按提示登录。
@@ -52,59 +52,25 @@ if "%AUTH_CHOICE%"=="2" (
 )
 
 echo.
-echo ==^> 检查 winget
-call :status "检查 winget" "确认系统具备 winget 安装能力。"
-where winget >nul 2>nul
+echo ==^> 检查 PowerShell
+call :status "检查 PowerShell" "确认系统可以运行 OpenAI 官方 Codex 安装器。"
+where powershell >nul 2>nul
 if errorlevel 1 (
-  call :status "安装失败" "未找到 winget。请先更新 Windows 应用安装程序。"
-  echo 未找到 winget。请先更新 Windows 应用安装程序，然后重新运行此脚本。
-  exit /b 1
-)
-
-echo.
-echo ==^> 检查 Node.js 和 npm
-call :status "检查 Node.js" "正在检查或安装 Node.js LTS 和 npm。"
-where node >nul 2>nul
-set "HAS_NODE=%ERRORLEVEL%"
-where npm >nul 2>nul
-set "HAS_NPM=%ERRORLEVEL%"
-if not "%HAS_NODE%"=="0" (
-  echo 正在通过 winget 安装 Node.js LTS
-  winget install --id OpenJS.NodeJS.LTS -e --accept-package-agreements --accept-source-agreements
-  if errorlevel 1 (
-    call :status "安装失败" "Node.js LTS 安装失败。"
-    echo Node.js LTS 安装失败。
-    exit /b 1
-  )
-)
-if not "%HAS_NPM%"=="0" if "%HAS_NODE%"=="0" (
-  echo npm 未找到，将重新安装 Node.js LTS。
-  winget install --id OpenJS.NodeJS.LTS -e --accept-package-agreements --accept-source-agreements
-  if errorlevel 1 (
-    call :status "安装失败" "Node.js LTS 安装失败。"
-    echo Node.js LTS 安装失败。
-    exit /b 1
-  )
-)
-set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
-
-where npm >nul 2>nul
-if errorlevel 1 (
-  call :status "需要新的 CMD" "Node.js 已安装，但当前 CMD 暂时找不到 npm。请打开新的 CMD 后重新运行此脚本。"
-  echo Node.js 已安装，但当前 CMD 仍找不到 npm。请关闭 CMD，重新打开后再运行此脚本。
+  call :status "安装失败" "未找到 PowerShell，无法运行 OpenAI 官方 Codex 安装器。"
+  echo 未找到 PowerShell，无法运行 OpenAI 官方 Codex 安装器。
   exit /b 1
 )
 
 echo.
 echo ==^> 安装或升级 OpenAI Codex CLI
-call :status "安装 Codex CLI" "正在通过 npm 安装或升级 @openai/codex。"
-npm install -g @openai/codex@latest
+call :status "安装 Codex CLI" "正在运行 OpenAI 官方安装器：https://chatgpt.com/codex/install.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://chatgpt.com/codex/install.ps1 | iex"
 if errorlevel 1 (
   call :status "安装失败" "Codex CLI 安装失败。"
   echo Codex CLI 安装失败。
   exit /b 1
 )
-set "PATH=%APPDATA%\npm;%PATH%"
+set "PATH=%USERPROFILE%\.codex\bin;%USERPROFILE%\.local\bin;%APPDATA%\npm;%PATH%"
 
 where codex >nul 2>nul
 if errorlevel 1 (

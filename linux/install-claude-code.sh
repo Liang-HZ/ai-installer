@@ -10,8 +10,8 @@ BASE_URL="${CLAUDE_INSTALLER_BASE_URL:-}"
 t() {
   local key="$1"
   case "${LANGUAGE}:${key}" in
-    zh:title) echo "Linux 版 Claude Code 一键安装配置" ;;
-    zh:intro) echo "此脚本会安装 Claude Code，并写入 Claude Code 配置。Linux 版不安装 CC Switch 桌面应用；需要管理配置时可直接编辑 ~/.claude/settings.json。" ;;
+    zh:title) echo "Linux 版 Claude Code + CC Switch 一键安装配置" ;;
+    zh:intro) echo "此脚本会补齐基础依赖，调用 Anthropic 官方安装器安装 Claude Code，从 farion1231/cc-switch 官方 Release 安装 CC Switch，并写入 Claude Code 配置。" ;;
     zh:auth_title) echo "请选择 Claude Code 的认证方式：" ;;
     zh:auth_official) echo "1. 官方登录/订阅：不写 API key，安装后运行 claude 并按浏览器提示登录。" ;;
     zh:auth_api) echo "2. Anthropic 官方 API Key：写入 ANTHROPIC_API_KEY，会以 X-Api-Key 请求头发送。" ;;
@@ -28,13 +28,19 @@ t() {
     zh:base_invalid_scheme) echo "Base URL 必须以 https:// 开头。请复制服务商提供的 HTTPS 地址。" ;;
     zh:base_invalid_chars) echo "Base URL 含有空白、换行或 shell 特殊字符。为保护你的终端，脚本已停止；请只粘贴纯 HTTPS 地址。" ;;
     zh:claude) echo "安装 Claude Code" ;;
+    zh:ccswitch) echo "安装 CC Switch" ;;
+    zh:install_deps) echo "正在安装缺失的基础依赖: $2" ;;
+    zh:deps_failed) echo "基础依赖安装失败。当前系统不在脚本支持的包管理器范围内，或缺少 sudo/root 权限；请联系页面作者补充该系统支持。" ;;
+    zh:ccswitch_asset_missing) echo "没有在最新 GitHub Release 中找到适合当前 Linux 架构和包格式的 CC Switch 资产。" ;;
+    zh:ccswitch_appimage) echo "未识别到 deb/rpm 包管理器，改为安装官方 AppImage 到 ~/.local/bin/cc-switch.AppImage。" ;;
+    zh:download) echo "正在下载: $2" ;;
     zh:json) echo "写入 ~/.claude.json 和 ~/.claude/settings.json" ;;
     zh:backup) echo "已有配置已备份: $2" ;;
     zh:done_official) echo "安装完成。请打开新的终端，进入项目文件夹运行 claude，并按浏览器提示登录。" ;;
     zh:done_key) echo "安装配置完成。请打开新的终端，进入项目文件夹后运行: claude。" ;;
     zh:verify_fail) echo "未找到 claude 命令。请打开新的终端后重试，或检查 Claude Code 安装是否成功。" ;;
-    en:title) echo "Claude Code one-click setup for Linux" ;;
-    en:intro) echo "This script installs Claude Code and writes Claude Code config. The Linux installer does not install the CC Switch desktop app; edit ~/.claude/settings.json directly when needed." ;;
+    en:title) echo "Claude Code + CC Switch one-click setup for Linux" ;;
+    en:intro) echo "This script installs base prerequisites, runs the official Anthropic installer for Claude Code, installs CC Switch from the official farion1231/cc-switch Release, and writes Claude Code config." ;;
     en:auth_title) echo "Choose Claude Code authentication:" ;;
     en:auth_official) echo "1. Official login/subscription: no API key is written. Run claude after install and sign in in the browser." ;;
     en:auth_api) echo "2. Official Anthropic API key: writes ANTHROPIC_API_KEY and sends it as X-Api-Key." ;;
@@ -51,6 +57,12 @@ t() {
     en:base_invalid_scheme) echo "Base URL must start with https://. Paste the HTTPS URL from your provider." ;;
     en:base_invalid_chars) echo "Base URL contains whitespace, newlines, or shell metacharacters. To protect your terminal, setup stopped. Paste only the plain HTTPS URL." ;;
     en:claude) echo "Installing Claude Code" ;;
+    en:ccswitch) echo "Installing CC Switch" ;;
+    en:install_deps) echo "Installing missing base prerequisites: $2" ;;
+    en:deps_failed) echo "Failed to install base prerequisites. This system is outside the supported package manager set, or sudo/root permission is missing; contact the page owner to add support for this system." ;;
+    en:ccswitch_asset_missing) echo "Could not find a CC Switch asset for this Linux architecture and package format in the latest GitHub Release." ;;
+    en:ccswitch_appimage) echo "No deb/rpm package manager was detected; installing the official AppImage to ~/.local/bin/cc-switch.AppImage." ;;
+    en:download) echo "Downloading: $2" ;;
     en:json) echo "Writing ~/.claude.json and ~/.claude/settings.json" ;;
     en:backup) echo "Existing config backed up: $2" ;;
     en:done_official) echo "Setup complete. Open a new terminal, cd into a project folder, run claude, and sign in in the browser." ;;
@@ -62,6 +74,7 @@ t() {
 
 step() { printf '\n==> %s\n' "$1"; }
 ok() { printf 'OK  %s\n' "$1"; }
+warn() { printf 'WARN %s\n' "$1"; }
 fail() { echo "$1" >&2; exit 1; }
 
 validate_base_url() {
@@ -77,6 +90,48 @@ validate_base_url() {
 
 ensure_linux() {
   [[ "$(uname -s)" == "Linux" ]] || fail "This installer is for Linux only."
+}
+
+run_as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    "$@"
+    return
+  fi
+  command -v sudo >/dev/null 2>&1 || fail "$(t deps_failed)"
+  sudo "$@"
+}
+
+install_linux_packages() {
+  local packages=("$@")
+  [[ "${#packages[@]}" -gt 0 ]] || return
+  step "$(t install_deps "${packages[*]}")"
+  if command -v apt-get >/dev/null 2>&1; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y "${packages[@]}"
+  elif command -v dnf >/dev/null 2>&1; then
+    run_as_root dnf install -y "${packages[@]}"
+  elif command -v yum >/dev/null 2>&1; then
+    run_as_root yum install -y "${packages[@]}"
+  elif command -v pacman >/dev/null 2>&1; then
+    run_as_root pacman -Sy --noconfirm --needed "${packages[@]}"
+  elif command -v zypper >/dev/null 2>&1; then
+    run_as_root zypper --non-interactive install "${packages[@]}"
+  else
+    fail "$(t deps_failed)"
+  fi
+}
+
+ensure_linux_prereqs() {
+  local packages=()
+  command -v curl >/dev/null 2>&1 || packages+=("curl")
+  command -v python3 >/dev/null 2>&1 || packages+=("python3")
+  command -v tar >/dev/null 2>&1 || packages+=("tar")
+  command -v mktemp >/dev/null 2>&1 || packages+=("coreutils")
+  if [[ "${#packages[@]}" -gt 0 ]]; then
+    install_linux_packages "${packages[@]}"
+  fi
+  command -v curl >/dev/null 2>&1 || fail "$(t deps_failed)"
+  command -v python3 >/dev/null 2>&1 || fail "$(t deps_failed)"
 }
 
 resolve_auth_mode() {
@@ -148,6 +203,59 @@ install_claude() {
   export PATH="${HOME}/.local/bin:${PATH}"
 }
 
+install_ccswitch() {
+  step "$(t ccswitch)"
+  # 官方资产名示例：CC-Switch-v3.16.1-Linux-x86_64.deb / CC-Switch-v3.16.1-Linux-arm64.rpm / CC-Switch-v3.16.1-Linux-x86_64.AppImage
+  local machine cc_arch package_ext api asset_url tmp package_path
+  machine="$(uname -m)"
+  case "$machine" in
+    x86_64|amd64) cc_arch="x86_64" ;;
+    aarch64|arm64) cc_arch="arm64" ;;
+    *) fail "Unsupported architecture: $machine" ;;
+  esac
+
+  if command -v dpkg >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    package_ext="deb"
+  elif command -v rpm >/dev/null 2>&1 && { command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v zypper >/dev/null 2>&1; }; then
+    package_ext="rpm"
+  else
+    package_ext="AppImage"
+    warn "$(t ccswitch_appimage)"
+  fi
+
+  api="$(curl -fsSL https://api.github.com/repos/farion1231/cc-switch/releases/latest)"
+  asset_url="$(printf '%s' "$api" | grep -Eo "https://[^\"]+CC-Switch-v[^\"]+-Linux-${cc_arch}\\.${package_ext}" | head -n 1 || true)"
+  [[ -n "$asset_url" ]] || fail "$(t ccswitch_asset_missing)"
+
+  tmp="$(mktemp -d)"
+  package_path="${tmp}/cc-switch.${package_ext}"
+  step "$(t download "$asset_url")"
+  curl -fL "$asset_url" -o "$package_path"
+
+  case "$package_ext" in
+    deb)
+      if ! run_as_root dpkg -i "$package_path"; then
+        run_as_root apt-get install -f -y
+      fi
+      ;;
+    rpm)
+      if command -v dnf >/dev/null 2>&1; then
+        run_as_root dnf install -y "$package_path"
+      elif command -v yum >/dev/null 2>&1; then
+        run_as_root yum install -y "$package_path"
+      else
+        run_as_root zypper --non-interactive install "$package_path"
+      fi
+      ;;
+    AppImage)
+      mkdir -p "${HOME}/.local/bin"
+      cp "$package_path" "${HOME}/.local/bin/cc-switch.AppImage"
+      chmod +x "${HOME}/.local/bin/cc-switch.AppImage"
+      ok "${HOME}/.local/bin/cc-switch.AppImage"
+      ;;
+  esac
+}
+
 backup_file() {
   local path="$1"
   if [[ -f "$path" ]]; then
@@ -212,8 +320,7 @@ main() {
   echo "$(t title)"
   echo "$(t intro)"
   ensure_linux
-  command -v curl >/dev/null 2>&1 || fail "curl is required."
-  command -v python3 >/dev/null 2>&1 || fail "python3 is required."
+  ensure_linux_prereqs
   local auth secret base_url
   auth="$(resolve_auth_mode)"
   if [[ "$auth" != "official" ]]; then
@@ -221,6 +328,7 @@ main() {
   fi
   base_url="$(resolve_base_url "$auth")"
   install_claude
+  install_ccswitch
   write_json_config "$auth" "${secret:-}" "$base_url"
   verify_claude
   if [[ "$auth" == "official" ]]; then
